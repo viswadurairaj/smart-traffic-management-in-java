@@ -1,0 +1,242 @@
+import java.awt.*;
+import java.awt.event.*;
+import java.util.Timer;
+import java.util.TimerTask;
+
+public class TrafficLightControllerAWT extends Frame {
+
+    private String currentLightNorth = "RED";
+    private String currentLightEast = "RED";
+    private String currentLightSouth = "RED";
+    private String currentLightWest = "RED";
+
+    private int redLightDurationNorth = 5000, greenLightDurationNorth = 4000;
+    private int redLightDurationEast = 5000, greenLightDurationEast = 4000;
+    private int redLightDurationSouth = 5000, greenLightDurationSouth = 4000;
+    private int redLightDurationWest = 5000, greenLightDurationWest = 4000;
+    private final int yellowLightDuration = 2000; // Fixed yellow light duration
+
+    private CardLayout cardLayout;
+    private Panel mainPanel;
+    private TextField densityNorth, densityEast, densitySouth, densityWest;
+    private Label statusLabel;
+    private TrafficLightPanel trafficLightPanel;
+
+    public TrafficLightControllerAWT() {
+        setTitle("Smart Traffic Light Controller");
+        setSize(700, 800);
+        setLayout(new BorderLayout());
+        setBackground(Color.LIGHT_GRAY);
+
+        cardLayout = new CardLayout();
+        mainPanel = new Panel(cardLayout);
+
+        createInputPanel();
+        createResultPanel();
+
+        add(mainPanel, BorderLayout.CENTER);
+
+        // Add window closing behavior
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
+    }
+
+    private void createInputPanel() {
+        Panel inputPanel = new Panel(new GridLayout(5, 2, 10, 10));
+        densityNorth = new TextField();
+        densityEast = new TextField();
+        densitySouth = new TextField();
+        densityWest = new TextField();
+
+        inputPanel.add(new Label("Enter Vehicle Density for North (0-500): "));
+        inputPanel.add(densityNorth);
+        inputPanel.add(new Label("Enter Vehicle Density for East (0-500): "));
+        inputPanel.add(densityEast);
+        inputPanel.add(new Label("Enter Vehicle Density for South (0-500): "));
+        inputPanel.add(densitySouth);
+        inputPanel.add(new Label("Enter Vehicle Density for West (0-500): "));
+        inputPanel.add(densityWest);
+
+        Button submitButton = new Button("Submit");
+        submitButton.addActionListener(e -> handleDensityInput());
+
+        inputPanel.add(new Label());
+        inputPanel.add(submitButton);
+
+        mainPanel.add(inputPanel, "InputPanel");
+    }
+
+    private void createResultPanel() {
+        Panel resultPanel = new Panel(new BorderLayout());
+        statusLabel = new Label("Timings will be displayed here...", Label.CENTER);
+        statusLabel.setFont(new Font("Arial", Font.BOLD, 16));
+
+        trafficLightPanel = new TrafficLightPanel();
+
+        Button backButton = new Button("Back to Input");
+        backButton.addActionListener(e -> cardLayout.show(mainPanel, "InputPanel"));
+
+        resultPanel.add(statusLabel, BorderLayout.NORTH);
+        resultPanel.add(trafficLightPanel, BorderLayout.CENTER);
+        resultPanel.add(backButton, BorderLayout.SOUTH);
+
+        mainPanel.add(resultPanel, "ResultPanel");
+    }
+
+    private void handleDensityInput() {
+        try {
+            int densityN = Integer.parseInt(densityNorth.getText().trim());
+            int densityE = Integer.parseInt(densityEast.getText().trim());
+            int densityS = Integer.parseInt(densitySouth.getText().trim());
+            int densityW = Integer.parseInt(densityWest.getText().trim());
+
+            if (isValidDensity(densityN) && isValidDensity(densityE) &&
+                isValidDensity(densityS) && isValidDensity(densityW)) {
+
+                adjustTimings("North", densityN);
+                adjustTimings("East", densityE);
+                adjustTimings("South", densityS);
+                adjustTimings("West", densityW);
+
+                statusLabel.setText("Adjusted Timings:\n" +
+                        "North: RED = " + redLightDurationNorth / 1000 + "s, GREEN = " + greenLightDurationNorth / 1000 + "s\n" +
+                        "East: RED = " + redLightDurationEast / 1000 + "s, GREEN = " + greenLightDurationEast / 1000 + "s\n" +
+                        "South: RED = " + redLightDurationSouth / 1000 + "s, GREEN = " + greenLightDurationSouth / 1000 + "s\n" +
+                        "West: RED = " + redLightDurationWest / 1000 + "s, GREEN = " + greenLightDurationWest / 1000 + "s");
+
+                startTrafficLightCycle();
+                cardLayout.show(mainPanel, "ResultPanel");
+
+            } else {
+                showError("Invalid input! Enter values between 0 and 500 for all directions.");
+            }
+        } catch (NumberFormatException ex) {
+            showError("Invalid input! Enter numeric values only.");
+        }
+    }
+
+    private void adjustTimings(String direction, int density) {
+        int redDuration, greenDuration;
+
+        if (density > 300) {
+            greenDuration = 10000; // Longer green light
+            redDuration = 4000;    // Shorter red light
+        } else if (density > 100) {
+            greenDuration = 7000;
+            redDuration = 5000;
+        } else if (density < 50) {
+            greenDuration = 4000;
+            redDuration = 7000;
+        } else {
+            greenDuration = 5000;
+            redDuration = 5000;
+        }
+
+        switch (direction) {
+            case "North":
+                redLightDurationNorth = redDuration;
+                greenLightDurationNorth = greenDuration;
+                break;
+            case "East":
+                redLightDurationEast = redDuration;
+                greenLightDurationEast = greenDuration;
+                break;
+            case "South":
+                redLightDurationSouth = redDuration;
+                greenLightDurationSouth = greenDuration;
+                break;
+            case "West":
+                redLightDurationWest = redDuration;
+                greenLightDurationWest = greenDuration;
+                break;
+        }
+    }
+
+    private void startTrafficLightCycle() {
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                currentLightNorth = toggleLight(currentLightNorth, redLightDurationNorth, greenLightDurationNorth);
+                currentLightEast = toggleLight(currentLightEast, redLightDurationEast, greenLightDurationEast);
+                currentLightSouth = toggleLight(currentLightSouth, redLightDurationSouth, greenLightDurationSouth);
+                currentLightWest = toggleLight(currentLightWest, redLightDurationWest, greenLightDurationWest);
+                trafficLightPanel.repaint();
+            }
+        }, 0, 1000);
+    }
+
+    private String toggleLight(String currentLight, int redDuration, int greenDuration) {
+        if (currentLight.equals("RED")) {
+            try {
+                Thread.sleep(redDuration);
+                return "GREEN";
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } else if (currentLight.equals("GREEN")) {
+            try {
+                Thread.sleep(greenDuration);
+                return "YELLOW";
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } else if (currentLight.equals("YELLOW")) {
+            try {
+                Thread.sleep(yellowLightDuration);
+                return "RED";
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return currentLight;
+    }
+
+    private boolean isValidDensity(int density) {
+        return density >= 0 && density <= 500;
+    }
+
+    private void showError(String message) {
+        statusLabel.setText("Error: " + message);
+        cardLayout.show(mainPanel, "ResultPanel");
+    }
+
+    class TrafficLightPanel extends Canvas {
+        @Override
+        public void paint(Graphics g) {
+            g.setColor(Color.BLACK);
+            g.fillRect(100, 50, 500, 600); // Background box for all lights
+
+            drawLight(g, 150, 80, currentLightNorth, "North");
+            drawLight(g, 150, 220, currentLightEast, "East");
+            drawLight(g, 150, 360, currentLightSouth, "South");
+            drawLight(g, 150, 500, currentLightWest, "West");
+        }
+
+        private void drawLight(Graphics g, int x, int y, String light, String label) {
+            g.setColor(Color.BLACK);
+            g.drawRect(x, y, 200, 100); // Traffic light box
+
+            g.setColor(light.equals("RED") ? Color.RED : Color.GRAY);
+            g.fillOval(x + 25, y + 20, 50, 50); // Red light circle
+
+            g.setColor(light.equals("YELLOW") ? Color.YELLOW : Color.GRAY);
+            g.fillOval(x + 75, y + 20, 50, 50); // Yellow light circle
+
+            g.setColor(light.equals("GREEN") ? Color.GREEN : Color.GRAY);
+            g.fillOval(x + 125, y + 20, 50, 50); // Green light circle
+
+            g.setColor(Color.WHITE);
+            g.drawString(label, x + 80, y + 90); // Label below the traffic light
+        }
+    }
+
+    public static void main(String[] args) {
+        TrafficLightControllerAWT frame = new TrafficLightControllerAWT();
+        frame.setVisible(true);
+    }
+}
